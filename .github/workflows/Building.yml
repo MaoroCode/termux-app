@@ -1,4 +1,4 @@
-name: Build Termux Official
+name: Build Termux Official 2
 
 on:
   workflow_dispatch:
