@@ -1,4 +1,4 @@
-name: Build Termux Official 2
+name: Build Termux Official 3
 
 on:
   workflow_dispatch:
@@ -11,7 +11,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: master
-          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -26,25 +25,28 @@ jobs:
 
       - name: Extract and Convert
         run: |
-          mkdir -p output
+          # إنشاء مجلدات المخرجات النهائية والمجلدات المؤقتة للـ DEX
+          mkdir -p output/emulator_dex_folder output/view_dex_folder
+          
           D8_PATH=$(find $ANDROID_HOME/build-tools -name d8 | sort -V | tail -n 1)
           
-          
+          # معالجة emulator
           cp terminal-emulator/build/outputs/aar/*.aar output/emulator.aar
           unzip output/emulator.aar classes.jar -d output/
-          $D8_PATH output/classes.jar --output output/emulator_dex/
-          mv output/emulator_dex/classes.dex output/emulator_classes.dex
+          # إخراج الـ DEX إلى مجلد موجود مسبقاً
+          $D8_PATH output/classes.jar --output output/emulator_dex_folder/
+          cp output/emulator_dex_folder/classes.dex output/emulator_classes.dex
           
-          
+          # معالجة view
           cp terminal-view/build/outputs/aar/*.aar output/view.aar
           unzip output/view.aar classes.jar -d output/view_temp/
-          $D8_PATH output/view_temp/classes.jar --output output/view_dex/
-          mv output/view_dex/classes.dex output/view_classes.dex
+          $D8_PATH output/view_temp/classes.jar --output output/view_dex_folder/
+          cp output/view_dex_folder/classes.dex output/view_classes.dex
 
-      - name: Upload
+      - name: Upload Assets
         uses: actions/upload-artifact@v4
         with:
-          name: Termux-Corrected
+          name: Termux-Project-Files
           path: |
             output/emulator.aar
             output/view.aar
