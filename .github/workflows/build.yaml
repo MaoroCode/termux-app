@@ -29,35 +29,20 @@ jobs:
 
       - name: Extract and Convert to DEX
         run: |
-          # إنشاء المجلدات الأساسية والمجلدات المؤقتة للـ DEX
           mkdir -p output/terminal-view/dex_temp output/terminal-emulator/dex_temp
           
-          # البحث عن أداة d8 في نظام Build Tools
           D8_PATH=$(find $ANDROID_HOME/build-tools -name d8 | sort -V | tail -n 1)
           
-          echo "Using D8 from: $D8_PATH"
-
-          # --- معالجة terminal-view ---
-          # 1. نسخ الـ AAR
           cp terminal-view/build/outputs/aar/*-release.aar output/terminal-view/view.aar
-          # 2. استخراج classes.jar من داخل الـ AAR
           unzip output/terminal-view/view.aar classes.jar -d output/terminal-view/
-          # 3. تحويل JAR إلى DEX (الإخراج إلى مجلد مؤقت لتجنب خطأ Invalid Output)
           $D8_PATH output/terminal-view/classes.jar --output output/terminal-view/dex_temp/
-          # 4. نقل ملف الـ DEX للوجهة النهائية
           mv output/terminal-view/dex_temp/classes.dex output/terminal-view/classes.dex
 
-          # --- معالجة terminal-emulator ---
-          # 1. نسخ الـ AAR
           cp terminal-emulator/build/outputs/aar/*-release.aar output/terminal-emulator/emulator.aar
-          # 2. استخراج classes.jar من داخل الـ AAR
           unzip output/terminal-emulator/emulator.aar classes.jar -d output/terminal-emulator/
-          # 3. تحويل JAR إلى DEX
           $D8_PATH output/terminal-emulator/classes.jar --output output/terminal-emulator/dex_temp/
-          # 4. نقل ملف الـ DEX للوجهة النهائية
           mv output/terminal-emulator/dex_temp/classes.dex output/terminal-emulator/classes.dex
 
-          # --- تنظيف الملفات الزائدة ---
           rm -rf output/terminal-view/dex_temp output/terminal-emulator/dex_temp
           rm output/terminal-view/classes.jar output/terminal-emulator/classes.jar
 
