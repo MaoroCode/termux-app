@@ -2,8 +2,8 @@ name: Build Termux AAR and DEX
 
 on:
   push:
-    branches: [ main ]  # سيعمل تلقائياً عند أي Push لفرع main
-  workflow_dispatch:     # يتيح لك التشغيل اليدوي أيضاً
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -12,7 +12,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          ref: main # التأكد من سحب الكود من فرع main تحديداً
+          ref: main
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -29,27 +29,40 @@ jobs:
 
       - name: Extract and Convert to DEX
         run: |
-          mkdir -p output/terminal-view output/terminal-emulator
+          # إنشاء المجلدات الأساسية والمجلدات المؤقتة للـ DEX
+          mkdir -p output/terminal-view/dex_temp output/terminal-emulator/dex_temp
           
-          # البحث عن أداة d8 في النظام
+          # البحث عن أداة d8 في نظام Build Tools
           D8_PATH=$(find $ANDROID_HOME/build-tools -name d8 | sort -V | tail -n 1)
           
-          # معالجة terminal-view: استخراج JAR ثم تحويله لـ DEX
+          echo "Using D8 from: $D8_PATH"
+
+          # --- معالجة terminal-view ---
+          # 1. نسخ الـ AAR
           cp terminal-view/build/outputs/aar/*-release.aar output/terminal-view/view.aar
+          # 2. استخراج classes.jar من داخل الـ AAR
           unzip output/terminal-view/view.aar classes.jar -d output/terminal-view/
-          $D8_PATH output/terminal-view/classes.jar --output output/terminal-view/classes.dex
-          
-          # معالجة terminal-emulator: استخراج JAR ثم تحويله لـ DEX
+          # 3. تحويل JAR إلى DEX (الإخراج إلى مجلد مؤقت لتجنب خطأ Invalid Output)
+          $D8_PATH output/terminal-view/classes.jar --output output/terminal-view/dex_temp/
+          # 4. نقل ملف الـ DEX للوجهة النهائية
+          mv output/terminal-view/dex_temp/classes.dex output/terminal-view/classes.dex
+
+          # --- معالجة terminal-emulator ---
+          # 1. نسخ الـ AAR
           cp terminal-emulator/build/outputs/aar/*-release.aar output/terminal-emulator/emulator.aar
+          # 2. استخراج classes.jar من داخل الـ AAR
           unzip output/terminal-emulator/emulator.aar classes.jar -d output/terminal-emulator/
-          $D8_PATH output/terminal-emulator/classes.jar --output output/terminal-emulator/classes.dex
-          
-          # تنظيف الملفات المؤقتة لإبقاء الـ AAR والـ DEX فقط
-          rm output/terminal-view/classes.jar
-          rm output/terminal-emulator/classes.jar
+          # 3. تحويل JAR إلى DEX
+          $D8_PATH output/terminal-emulator/classes.jar --output output/terminal-emulator/dex_temp/
+          # 4. نقل ملف الـ DEX للوجهة النهائية
+          mv output/terminal-emulator/dex_temp/classes.dex output/terminal-emulator/classes.dex
+
+          # --- تنظيف الملفات الزائدة ---
+          rm -rf output/terminal-view/dex_temp output/terminal-emulator/dex_temp
+          rm output/terminal-view/classes.jar output/terminal-emulator/classes.jar
 
       - name: Upload Termux Assets
         uses: actions/upload-artifact@v4
         with:
-          name: Termux-Project-Files
+          name: Termux-Project-Files-Main
           path: output/
