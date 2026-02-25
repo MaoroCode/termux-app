@@ -1,0 +1,55 @@
+name: Build Termux AAR and DEX
+
+on:
+  push:
+    branches: [ main ]  # سيعمل تلقائياً عند أي Push لفرع main
+  workflow_dispatch:     # يتيح لك التشغيل اليدوي أيضاً
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: main # التأكد من سحب الكود من فرع main تحديداً
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant Execute Permission
+        run: chmod +x gradlew
+
+      - name: Build Modules
+        run: ./gradlew :terminal-view:assembleRelease :terminal-emulator:assembleRelease
+
+      - name: Extract and Convert to DEX
+        run: |
+          mkdir -p output/terminal-view output/terminal-emulator
+          
+          # البحث عن أداة d8 في النظام
+          D8_PATH=$(find $ANDROID_HOME/build-tools -name d8 | sort -V | tail -n 1)
+          
+          # معالجة terminal-view: استخراج JAR ثم تحويله لـ DEX
+          cp terminal-view/build/outputs/aar/*-release.aar output/terminal-view/view.aar
+          unzip output/terminal-view/view.aar classes.jar -d output/terminal-view/
+          $D8_PATH output/terminal-view/classes.jar --output output/terminal-view/classes.dex
+          
+          # معالجة terminal-emulator: استخراج JAR ثم تحويله لـ DEX
+          cp terminal-emulator/build/outputs/aar/*-release.aar output/terminal-emulator/emulator.aar
+          unzip output/terminal-emulator/emulator.aar classes.jar -d output/terminal-emulator/
+          $D8_PATH output/terminal-emulator/classes.jar --output output/terminal-emulator/classes.dex
+          
+          # تنظيف الملفات المؤقتة لإبقاء الـ AAR والـ DEX فقط
+          rm output/terminal-view/classes.jar
+          rm output/terminal-emulator/classes.jar
+
+      - name: Upload Termux Assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: Termux-Project-Files
+          path: output/
