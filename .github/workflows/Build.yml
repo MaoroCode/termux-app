@@ -1,0 +1,52 @@
+name: Build Termux Official
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: master # تأكدنا هنا أنه master كما في رابط مستودعك
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Clean and Build
+        run: |
+          chmod +x gradlew
+          ./gradlew clean :terminal-emulator:assembleRelease :terminal-view:assembleRelease
+
+      - name: Extract and Convert
+        run: |
+          mkdir -p output
+          D8_PATH=$(find $ANDROID_HOME/build-tools -name d8 | sort -V | tail -n 1)
+          
+          # استخراج emulator
+          cp terminal-emulator/build/outputs/aar/*.aar output/emulator.aar
+          unzip output/emulator.aar classes.jar -d output/
+          $D8_PATH output/classes.jar --output output/emulator_dex/
+          mv output/emulator_dex/classes.dex output/emulator_classes.dex
+          
+          # استخراج view
+          cp terminal-view/build/outputs/aar/*.aar output/view.aar
+          unzip output/view.aar classes.jar -d output/view_temp/
+          $D8_PATH output/view_temp/classes.jar --output output/view_dex/
+          mv output/view_dex/classes.dex output/view_classes.dex
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: Termux-Corrected
+          path: |
+            output/emulator.aar
+            output/view.aar
+            output/emulator_classes.dex
+            output/view_classes.dex
